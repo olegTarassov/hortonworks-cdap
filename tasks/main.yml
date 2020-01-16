@@ -1,0 +1,352 @@
+---
+
+- name: Configure Ranger for CDAP
+  include_tasks: ranger_cdap.yml
+
+- name: Download CDAP Repo
+  get_url:
+    url: http://repository.cask.co/centos/6/x86_64/cdap/{{ cdap_version }}/cask.repo
+    dest: /etc/yum.repos.d/cask.repo
+    mode: 0644
+
+- name: Import CDAP GPG key
+  rpm_key:
+    state: present
+    key: http://repository.cask.co/centos/6/x86_64/cdap/{{ cdap_version }}/pubkey.gpg
+
+- name: Install cdap-ambari-service
+  yum:
+    name: cdap-ambari-service
+    state: present
+    update_cache: yes
+  notify: Restart ambari-server
+
+- name: Create cdap user
+  user:
+    name: cdap
+    comment: "CDAP user"
+    uid: "503"
+    group: hadoop
+    groups: hadoop
+
+- name: Create HDFS directories
+  command: "hdfs dfs {{ item }}"
+  become_user: hdfs
+  become_method: su
+  loop:
+    - "-mkdir -p /user/yarn"
+    - "-chown yarn:yarn /user/yarn"
+    - "-mkdir -p /user/cdap"
+    - "-chown cdap:cdap /user/cdap"
+
+- name: Restart Ambari Server
+  meta: flush_handlers
+
+- name: Add CDAP Service
+  uri:
+    url: "http://{{ ambari_master_node }}:8080/api/v1/clusters/{{ cluster_name }}/services"
+    method: POST
+    user: "{{ ambari_admin_user }}"
+    password: "{{ ambari_admin_password }}"
+    force_basic_auth: yes
+    headers:
+      X-Requested-By: "ambari"
+    body: '{"ServiceInfo":{"service_name":"CDAP"}}'
+    status_code: 200,201,202,404,409
+    return_content: yes
+    validate_certs: no
+  retries: 10
+  delay: 5
+
+- name: Add CDAP Components
+  uri:
+   url: "http://{{ ambari_master_node }}:8080/api/v1/clusters/{{ cluster_name }}/services/CDAP/components/{{ item }}"
+   method: POST
+   user: "{{ ambari_admin_user }}"
+   password: "{{ ambari_admin_password }}"
+   force_basic_auth: yes
+   validate_certs: no
+   headers:
+      X-Requested-By: "ambari"
+   status_code: 200,201,202,404,409
+   return_content: yes
+  loop: "{{ cdap_components }}"
+
+- name: Add CDAP Configuration
+  uri:
+    url: "http://{{ ambari_master_node }}:8080/api/v1/clusters/{{ cluster_name }}"
+    method: PUT
+    user: "{{ ambari_admin_user }}"
+    password: "{{ ambari_admin_password }}"
+    force_basic_auth: yes
+    headers:
+      X-Requested-By: "ambari"
+    body: "{{ lookup('template', item + '.json.j2') | to_json }}"
+    return_content: yes
+    validate_certs: no
+  loop:
+    - cdap-env
+    - cdap-logback
+    - cdap-logback-container
+    - cdap-security
+    - cdap-site
+
+- name: Get zoo.cfg config versions
+  uri:
+    url: "http://{{ ambari_master_node }}:8080/api/v1/clusters/{{ cluster_name }}/configurations?type=zoo.cfg"
+    method: GET
+    user: "{{ ambari_admin_user }}"
+    password: "{{ ambari_admin_password }}"
+    force_basic_auth: yes
+    headers:
+      X-Requested-By: "ambari"
+    return_content: yes
+    validate_certs: no
+  register: zoo_config_versions
+
+- name: Get zoo.cfg latest version
+  set_fact:
+    zoo_cfg_latest_tag: "{{ zoo_config_versions.json['items'][-1].tag }}"
+
+- name: Get zoo.cfg latest Configuration
+  uri:
+    url: "http://{{ ambari_master_node }}:8080/api/v1/clusters/{{ cluster_name }}/configurations?type=zoo.cfg&tag={{ zoo_cfg_latest_tag }}"
+    method: GET
+    user: "{{ ambari_admin_user }}"
+    password: "{{ ambari_admin_password }}"
+    force_basic_auth: yes
+    headers:
+      X-Requested-By: "ambari"
+    return_content: yes
+    validate_certs: no
+  register: zoo_config_latest
+
+- name: Update zoo.cfg Configuration
+  uri:
+    url: "http://{{ ambari_master_node }}:8080/api/v1/clusters/{{ cluster_name }}"
+    method: PUT
+    user: "{{ ambari_admin_user }}"
+    password: "{{ ambari_admin_password }}"
+    force_basic_auth: true
+    return_content: true
+    body_format: json
+    validate_certs: no
+    headers:
+      X-Requested-By: ambari
+      Content-Type: application/x-www-form-urlencoded
+    body:
+      RequestInfo:
+        context: "Install CDAP via REST api"
+      Body:
+        Clusters:
+          desired_config:
+            type: "zoo.cfg"
+            tag: "version{{ ansible_date_time.epoch }}"
+            properties: "{{ zoo_config_latest.json['items'][0].properties | combine(hdp_config['zoo.cfg']) }}"
+  register: test
+
+- name: Assign CDAP components to hosts
+  uri:
+    url: "http://{{ ambari_master_node }}:8080/api/v1/clusters/{{ cluster_name }}/hosts"
+    method: POST
+    user: "{{ ambari_admin_user }}"
+    password: "{{ ambari_admin_password }}"
+    force_basic_auth: true
+    return_content: true
+    body_format: json
+    headers:
+      X-Requested-By: ambari
+      Content-Type: application/x-www-form-urlencoded
+    body:
+      RequestInfo:
+        context: "Add {{ item }} to hosts"
+        query: "Hosts/host_name.in({{ groups['hdp-master'] | join(',') }})"
+      Body:
+        host_components:
+          - HostRoles:
+              component_name: "{{ item }}"
+    status_code: 200,201,202,404,409
+    validate_certs: no
+  loop: "{{ cdap_components }}"
+
+- name: Get CDAP Status
+  uri:
+    url: "http://{{ ambari_master_node }}:8080/api/v1/clusters/{{ cluster_name }}/services/CDAP?fields=ServiceInfo"
+    method: GET
+    user: "{{ ambari_admin_user }}"
+    password: "{{ ambari_admin_password }}"
+    force_basic_auth: true
+    return_content: true
+    body_format: json
+    validate_certs: no
+    headers:
+      X-Requested-By: ambari
+      Content-Type: application/json
+    status_code: 200,201,202,404
+  register: cdap_result_info
+
+- name: Install CDAP Service
+  uri:
+    url: "http://{{ ambari_master_node }}:8080/api/v1/clusters/{{ cluster_name }}/services/CDAP"
+    method: PUT
+    user: "{{ ambari_admin_user }}"
+    password: "{{ ambari_admin_password }}"
+    force_basic_auth: true
+    return_content: true
+    body_format: json
+    validate_certs: no
+    headers:
+      X-Requested-By: ambari
+      Content-Type: application/x-www-form-urlencoded
+    body:
+      RequestInfo:
+        context: "Install CDAP via REST api"
+      Body:
+        ServiceInfo:
+          state: INSTALLED
+    status_code: 200,201,202,404
+  changed_when: cdap_result_install.status == 202
+  register: cdap_result_install
+  when:
+    - cdap_result_info.json.ServiceInfo.state != "INSTALLED"
+    - cdap_result_info.json.ServiceInfo.state != "STARTING"
+
+- name: Wait for CDAP to install
+  uri:
+    url: "{{ (cdap_result_install.content.json.href }}"
+    method: GET
+    user: "{{ ambari_admin_user }}"
+    password: "{{ ambari_admin_password }}"
+    force_basic_auth: true
+    return_content: true
+    body_format: json
+    validate_certs: no
+    headers:
+      X-Requested-By: ambari
+      Content-Type: application/json
+    status_code: "200"
+  register: cdap_result_request
+  until:
+    cdap_result_request.json.Requests.request_status == "COMPLETED" or cdap_result_request.json.Requests.request_status == "FAILED"
+  failed_when:
+    cdap_result_request.json.Requests.request_status == "FAILED"
+  retries: 20
+  delay: 30
+  when: cdap_result_install.json is defined
+
+- name: Start CDAP Component
+  uri:
+    url: "http://{{ ambari_master_node }}:8080/api/v1/clusters/{{ cluster_name }}/services/CDAP"
+    method: PUT
+    user: "{{ ambari_admin_user }}"
+    password: "{{ ambari_admin_password }}"
+    force_basic_auth: true
+    return_content: true
+    body_format: json
+    validate_certs: no
+    headers:
+      X-Requested-By: ambari
+      Content-Type: application/x-www-form-urlencoded
+    body:
+      RequestInfo:
+        context: "Start CDAP components via REST api"
+      Body:
+        ServiceInfo:
+          state: STARTED
+    status_code: 202
+  register: cdap_result_start
+  changed_when: cdap_result_start.status == 202
+
+- name: Wait for CDAP to start
+  uri:
+    url: "{{ cdap_result_start.json.href }}"
+    method: GET
+    user: "{{ ambari_admin_user }}"
+    password: "{{ ambari_admin_password }}"
+    force_basic_auth: true
+    return_content: true
+    body_format: json
+    validate_certs: no
+    headers:
+      X-Requested-By: ambari
+      Content-Type: application/json
+    status_code: 200,201
+  register: cdap_start_request
+  until:
+    cdap_start_request.json.Requests.request_status == "COMPLETED" or cdap_start_request.json.Requests.request_status == "FAILED"
+  failed_when:
+    cdap_start_request.json.Requests.request_status == "FAILED"
+  retries: 20
+  delay: 30
+  when: cdap_result_start.json is defined
+
+- name: Enable AutoRecovery of CDAP Components
+  uri:
+    url: "http://{{ ambari_master_node }}:8080/api/v1/clusters/{{ cluster_name }}/components"
+    method: PUT
+    user: "{{ ambari_admin_user }}"
+    password: "{{ ambari_admin_password }}"
+    force_basic_auth: true
+    return_content: true
+    body_format: json
+    validate_certs: no
+    headers:
+      X-Requested-By: ambari
+      Content-Type: application/x-www-form-urlencoded
+    body:
+      RequestInfo:
+        context: "Enable CDAP Components AutoRecovery via REST api"
+        query: "ServiceComponentInfo/component_name.in({{ cdap_components | join(',') }})"
+      Body:
+        ServiceComponentInfo:
+          recovery_enabled: true
+
+- name: Restart service with stalled configs
+  uri:
+    url: "http://{{ ambari_master_node }}:8080/api/v1/clusters/{{ cluster_name }}/requests"
+    method: POST
+    user: "{{ ambari_admin_user }}"
+    password: "{{ ambari_admin_password }}"
+    force_basic_auth: true
+    return_content: true
+    body_format: json
+    headers:
+      X-Requested-By: ambari
+      Content-Type: application/x-www-form-urlencoded
+    body:
+      RequestInfo:
+        context: Restart all required services
+        command: RESTART
+        operation_level: host_component
+      Requests/resource_filters:
+        - hosts_predicate: "HostRoles/stale_configs=true&HostRoles/cluster_name={{ cluster_name }}"
+    status_code: 200,201,202
+  register: restart_service
+
+- name: Wait for services to restart
+  uri:
+    url: "{{ restart_service.json.href }}"
+    method: GET
+    user: "{{ ambari_admin_user }}"
+    password: "{{ ambari_admin_password }}"
+    force_basic_auth: true
+    return_content: true
+    status_code: 200
+  register: request_result
+  until:
+    request_result.json.Requests.request_status == "COMPLETED" or
+    request_result.json.Requests.request_status == "FAILED"
+  failed_when: request_result.json.Requests.request_status == "FAILED"
+  retries: 180
+  delay: 10
+  when: restart_service.status == 202
+
+- name: Fail if Restart request isn't completed.
+  fail:
+    msg: |
+      Restart request isn't completed before timeout.
+      Please log in ambari portal to diagnose the issue before trying to run the playbook again.
+  when:
+    - restart_service.status == 202
+    - request_result.json.Requests.request_status != "COMPLETED"
+    - request_result.json.Requests.request_status != "FAILED"

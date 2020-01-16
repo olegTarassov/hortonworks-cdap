@@ -1,0 +1,15 @@
+{
+  "Clusters": {
+    "desired_config": {
+      "type": "{{ item }}",
+      "tag": "version{{ ansible_date_time.epoch }}",
+      "properties": {
+        "router.ssl.keystore.path" : "",
+        "dashboard.ssl.key" : "",
+        "dashboard.ssl.cert" : "",
+        "router.ssl.keystore.type" : "JKS",
+        "security.authentication.handler.bindDn" : ""
+      }
+    }
+  }
+}

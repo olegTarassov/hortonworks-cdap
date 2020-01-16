@@ -1,0 +1,21 @@
+galaxy_info:
+  author: olegTarassov
+  description: Install CDAP on top of Ambari HDP 2.6 from HortonWorks.
+  company: Guavus Thales
+
+  issue_tracker_url: https://github.com/olegTarassov/ansible-role-cdap/issues
+
+  license: license (GPL-2.0-or-later, MIT, etc)
+
+  min_ansible_version: 2.7
+
+  platforms:
+  - name: Centos
+    versions:
+    - all
+
+  galaxy_tags:
+    - hortownworks
+    - ambari
+
+dependencies: []

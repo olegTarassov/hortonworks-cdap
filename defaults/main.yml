@@ -1,0 +1,310 @@
+---
+
+ambari_master_node: "{{ inventory_hostname }}"
+
+cdap_version: 5.1
+
+cluster_name: mytestcluster
+
+ambari_admin_user: admin
+ambari_admin_password: admin
+
+ranger_security_options:
+    ranger_admin_password: "{{ ambari_admin_password }}"
+
+hdp_config:
+  zoo.cfg:
+    maxClientCnxns : "0"
+
+cdap_components:
+  - CDAP_MASTER
+  - CDAP_ROUTER
+  - CDAP_UI
+  - CDAP_KAFKA
+  - CDAP_AUTH_SERVER
+  - CDAP_CLI
+
+cdap_path_policy_config: |
+  {
+   "name":"cdap_path",
+   "service": "{{ cluster_name }}_hadoop",
+   "isEnabled": true,
+   "isAuditEnabled": true,
+   "resources": {
+        "path": {
+            "values": [
+                "/user/cdap",
+                "/cdap/tx.snapshot"
+            ],
+            "isExcludes": false,
+            "isRecursive": true
+        }
+    },
+    "policyItems": [
+        {
+            "accesses": [
+                {
+                    "type": "write",
+                    "isAllowed": true
+                },
+                {
+                    "type": "read",
+                    "isAllowed": true
+                },
+                {
+                    "type": "execute",
+                    "isAllowed": true
+                }
+            ],
+            "users": [
+                "cdap"
+            ],
+            "groups": [],
+            "conditions": [],
+            "delegateAdmin": false
+        }
+    ],
+    "denyPolicyItems": [],
+    "allowExceptions": [],
+    "denyExceptions": [],
+    "dataMaskPolicyItems": [],
+    "rowFilterPolicyItems": []
+  }
+
+yarn_path_policy_config: |
+  {
+   "name":"yarn_path",
+   "service": "{{ cluster_name }}_hadoop",
+   "isEnabled": true,
+   "isAuditEnabled": true,
+   "resources": {
+        "path": {
+            "values": [
+                "/user/yarn",
+                "/cdap"
+            ],
+            "isExcludes": false,
+            "isRecursive": true
+        }
+    },
+    "policyItems": [
+        {
+            "accesses": [
+                {
+                    "type": "write",
+                    "isAllowed": true
+                },
+                {
+                    "type": "read",
+                    "isAllowed": true
+                },
+                {
+                    "type": "execute",
+                    "isAllowed": true
+                }
+            ],
+            "users": [
+                "yarn"
+            ],
+            "groups": [],
+            "conditions": [],
+            "delegateAdmin": false
+        }
+    ],
+    "denyPolicyItems": [],
+    "allowExceptions": [],
+    "denyExceptions": [],
+    "dataMaskPolicyItems": [],
+    "rowFilterPolicyItems": []
+  }
+
+hbase_all_policy_config: |
+  {
+   "name":"hbase-all",
+   "service": "{{ cluster_name }}_hbase",
+   "isEnabled": true,
+   "isAuditEnabled": true,
+        "resources": {
+            "column-family": {
+                "values": [
+                    "*"
+                ],
+                "isExcludes": false,
+                "isRecursive": false
+            },
+            "column": {
+                "values": [
+                    "*"
+                ],
+                "isExcludes": false,
+                "isRecursive": false
+            },
+            "table": {
+                "values": [
+                    "*"
+                ],
+                "isExcludes": false,
+                "isRecursive": false
+            }
+        },
+        "policyItems": [
+            {
+                "accesses": [
+                    {
+                        "type": "read",
+                        "isAllowed": true
+                    },
+                    {
+                        "type": "write",
+                        "isAllowed": true
+                    },
+                    {
+                        "type": "create",
+                        "isAllowed": true
+                    },
+                    {
+                        "type": "admin",
+                        "isAllowed": true
+                    }
+                ],
+                "users": [
+                    "hbase",
+                    "ambari-qa"
+                ],
+                "groups": [],
+                "conditions": [],
+                "delegateAdmin": true
+            },
+            {
+                "accesses": [
+                    {
+                        "type": "read",
+                        "isAllowed": true
+                    },
+                    {
+                        "type": "write",
+                        "isAllowed": true
+                    },
+                    {
+                        "type": "create",
+                        "isAllowed": true
+                    },
+                    {
+                        "type": "admin",
+                        "isAllowed": true
+                    }
+                ],
+                "users": [
+                    "cdap",
+                    "yarn"
+                ],
+                "groups": [],
+                "conditions": [],
+                "delegateAdmin": false
+            }
+        ],
+        "denyPolicyItems": [],
+        "allowExceptions": [],
+        "denyExceptions": [],
+        "dataMaskPolicyItems": [],
+        "rowFilterPolicyItems": []
+  }
+
+kafka_brokers_policy_config: |
+  {
+   "name":"kafka-brokers",
+   "service": "{{ cluster_name }}_kafka",
+   "isEnabled": true,
+   "isAuditEnabled": true,
+    "resources": {
+        "topic": {
+            "values": [
+                "*"
+            ],
+            "isExcludes": false,
+            "isRecursive": false
+        }
+    },
+    "policyItems": [
+        {
+            "accesses": [
+                {
+                    "type": "kafka_admin",
+                    "isAllowed": true
+                }
+            ],
+            "users":
+            [
+                "cdap",
+                "kafka",
+                "atlas"
+            ],
+            "groups": [
+                "public"
+            ],
+            "conditions": [],
+            "delegateAdmin": true
+        }
+    ],
+    "denyPolicyItems": [],
+    "allowExceptions": [],
+    "denyExceptions": [],
+    "dataMaskPolicyItems": [],
+    "rowFilterPolicyItems": []
+  }
+
+kafka_atlas_policy_config: |
+  {
+   "name":"kafka-atlas",
+   "service": "{{ cluster_name }}_kafka",
+   "isEnabled": true,
+   "isAuditEnabled": true,
+    "resources": {
+        "topic": {
+            "values": [
+                "ATLAS_HOOK",
+                "ATLAS_ENTITIES",
+                "*"
+            ],
+            "isExcludes": false,
+            "isRecursive": false
+        }
+    },
+    "policyItems": [
+        {
+            "accesses": [
+                {
+                    "type": "publish",
+                    "isAllowed": true
+                },
+                {
+                    "type": "consume",
+                    "isAllowed": true
+                },
+                {
+                    "type": "describe",
+                    "isAllowed": true
+                },
+                {
+                    "type": "create",
+                    "isAllowed": true
+                }
+            ],
+            "users": [
+                "atlas",
+                "kafka",
+                "cdap"
+            ],
+            "groups": [
+                "public"
+              ],
+            "conditions": [],
+            "delegateAdmin": false
+        }
+    ],
+    "denyPolicyItems": [],
+    "allowExceptions": [],
+    "denyExceptions": [],
+    "dataMaskPolicyItems": [],
+    "rowFilterPolicyItems": []
+  }

@@ -1,0 +1,80 @@
+---
+
+- name: Add/Update ranger hdfs policies
+  uri:
+    url: "http://{{ ambari_master_node }}:6080/service/public/v2/api/policy"
+    method: POST
+    user: "{{ ambari_admin_user }}"
+    password: "{{ ranger_security_options.ranger_admin_password }}"
+    force_basic_auth: true
+    return_content: true
+    body_format: json
+    headers:
+      X-Xsrf-Header: valid
+      Content-Type: application/json
+    body: "{{ item }}"
+    status_code: 200,400
+  loop:
+    - "{{ cdap_path_policy_config }}"
+    - "{{ yarn_path_policy_config }}"
+
+- name: Delete hbase ranger policy
+  uri:
+    url: "http://{{ ambari_master_node }}:6080/service/public/v2/api/policy?servicename={{ cluster_name }}_hbase&policyname=all+-+table,+column-family,+column"
+    method: DELETE
+    user: "{{ ambari_admin_user }}"
+    password: "{{ ranger_security_options.ranger_admin_password }}"
+    force_basic_auth: true
+    return_content: true
+    body_format: json
+    headers:
+      X-Xsrf-Header: valid
+    status_code: 204,404
+
+- name: Add/Update Ranger hbase policies
+  uri:
+    url: "http://{{ ambari_master_node }}:6080/service/public/v2/api/policy"
+    method: POST
+    user: "{{ ambari_admin_user }}"
+    password: "{{ ranger_security_options.ranger_admin_password }}"
+    force_basic_auth: true
+    return_content: true
+    body_format: json
+    headers:
+      X-Xsrf-Header: valid
+      Content-Type: application/json
+    body: "{{ item }}"
+    status_code: 200,400
+  loop:
+    - "{{ hbase_all_policy_config }}"
+
+- name: Delete kafka ranger policy
+  uri:
+    url: "http://{{ ambari_master_node }}:6080/service/public/v2/api/policy?servicename={{ cluster_name }}_kafka&policyname=all+-+topic"
+    method: DELETE
+    user: "{{ ambari_admin_user }}"
+    password: "{{ ranger_security_options.ranger_admin_password }}"
+    force_basic_auth: true
+    return_content: true
+    body_format: json
+    headers:
+      X-Xsrf-Header: valid
+    status_code: 204,404
+
+- name: Add/Update Ranger kafka policies
+  uri:
+    url: "http://{{ ambari_master_node }}:6080/service/public/v2/api/policy"
+    method: POST
+    user: "{{ ambari_admin_user }}"
+    password: "{{ ranger_security_options.ranger_admin_password }}"
+    force_basic_auth: true
+    return_content: true
+    body_format: json
+    headers:
+      X-Xsrf-Header: valid
+      Content-Type: application/json
+    body: "{{ item }}"
+    status_code: 200,400
+  loop:
+    - "{{ kafka_brokers_policy_config }}"
+    - "{{ kafka_atlas_policy_config }}"
