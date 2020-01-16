@@ -1,4 +1,5 @@
 galaxy_info:
+  role_name: ambari_cdap
   author: olegTarassov
   description: Install CDAP on top of Ambari HDP 2.6 from HortonWorks.
   company: Guavus Thales

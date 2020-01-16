@@ -14,7 +14,7 @@ ranger_security_options:
 
 hdp_config:
   zoo.cfg:
-    maxClientCnxns : "0"
+    maxClientCnxns: "0"
 
 cdap_components:
   - CDAP_MASTER

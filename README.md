@@ -89,7 +89,7 @@ Example Playbook
   any_errors_fatal: true
   become: yes
   roles:
-    - cdap
+    - ambari_cdap
 ```
 
 ```bash
