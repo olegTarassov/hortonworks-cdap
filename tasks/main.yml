@@ -213,7 +213,7 @@
 
 - name: Wait for CDAP to install
   uri:
-    url: "{{ (cdap_result_install.content.json.href }}"
+    url: "{{ cdap_result_install.content.json.href }}"
     method: GET
     user: "{{ ambari_admin_user }}"
     password: "{{ ambari_admin_password }}"
