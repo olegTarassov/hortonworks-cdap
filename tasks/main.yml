@@ -8,11 +8,19 @@
     url: http://repository.cask.co/centos/6/x86_64/cdap/{{ cdap_version }}/cask.repo
     dest: /etc/yum.repos.d/cask.repo
     mode: 0644
+  when: private_repo_url is not defined | bool
 
 - name: Import CDAP GPG key
   rpm_key:
     state: present
     key: http://repository.cask.co/centos/6/x86_64/cdap/{{ cdap_version }}/pubkey.gpg
+  when: private_repo_url is not defined | bool
+
+- name: Add Private CDAP repo
+  template:
+    src: "cask.repo.j2"
+    dest: "/etc/yum.repos.d/cask.repo"
+  when: private_repo_url is defined | bool
 
 - name: Install cdap-ambari-service
   yum:
@@ -33,6 +41,7 @@
   command: "hdfs dfs {{ item }}"
   become_user: hdfs
   become_method: su
+  become: True
   loop:
     - "-mkdir -p /user/yarn"
     - "-chown yarn:yarn /user/yarn"
@@ -227,12 +236,12 @@
     status_code: "200"
   register: cdap_result_request
   until:
-    cdap_result_request.json.Requests.request_status == "COMPLETED" or cdap_result_request.json.Requests.request_status == "FAILED"
+    cdap_result_request.content.json.Requests.request_status == "COMPLETED" or cdap_result_request.content.json.Requests.request_status == "FAILED"
   failed_when:
-    cdap_result_request.json.Requests.request_status == "FAILED"
+    cdap_result_request.content.json.Requests.request_status == "FAILED"
   retries: 20
   delay: 30
-  when: cdap_result_install.json is defined
+  when: cdap_result_install.content is defined
 
 - name: Start CDAP Component
   uri:
