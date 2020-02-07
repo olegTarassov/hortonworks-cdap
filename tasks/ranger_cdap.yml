@@ -17,6 +17,7 @@
   loop:
     - "{{ cdap_path_policy_config }}"
     - "{{ yarn_path_policy_config }}"
+    - "{{ cdap_user_policy_config }}"
 
 - name: Delete hbase ranger policy
   uri:

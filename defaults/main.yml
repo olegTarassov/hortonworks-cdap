@@ -71,6 +71,48 @@ cdap_path_policy_config: |
     "rowFilterPolicyItems": []
   }
 
+cdap_user_policy_config: |
+  {
+  "name":"cdap_user",
+  "service": "{{ cluster_name }}_yarn",
+  "isEnabled": true,
+  "isAuditEnabled": true,
+  "resources": {
+          "queue": {
+              "values": [
+                  "default"
+              ],
+              "isExcludes": false,
+              "isRecursive": true
+          }
+      },
+      "policyItems": [
+          {
+              "accesses": [
+                  {
+                      "type": "submit-app",
+                      "isAllowed": true
+                  },
+                  {
+                      "type": "admin-queue",
+                      "isAllowed": true
+                  }
+              ],
+              "users": [
+                  "cdap"
+              ],
+              "groups": [],
+              "conditions": [],
+              "delegateAdmin": false
+          }
+      ],
+      "denyPolicyItems": [],
+      "allowExceptions": [],
+      "denyExceptions": [],
+      "dataMaskPolicyItems": [],
+      "rowFilterPolicyItems": []
+  }
+
 yarn_path_policy_config: |
   {
    "name":"yarn_path",
@@ -236,8 +278,7 @@ kafka_brokers_policy_config: |
             "users":
             [
                 "cdap",
-                "kafka",
-                "atlas"
+                "kafka"
             ],
             "groups": [
                 "public"
@@ -291,7 +332,6 @@ kafka_atlas_policy_config: |
                 }
             ],
             "users": [
-                "atlas",
                 "kafka",
                 "cdap"
             ],
