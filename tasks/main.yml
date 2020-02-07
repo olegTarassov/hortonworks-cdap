@@ -219,10 +219,11 @@
   when:
     - cdap_result_info.json.ServiceInfo.state != "INSTALLED"
     - cdap_result_info.json.ServiceInfo.state != "STARTING"
+    - cdap_result_info.json.ServiceInfo.state != "STARTED"
 
 - name: Wait for CDAP to install
   uri:
-    url: "{{ cdap_result_install.content.json.href }}"
+    url: "{{ cdap_result_install.json.href }}"
     method: GET
     user: "{{ ambari_admin_user }}"
     password: "{{ ambari_admin_password }}"
@@ -236,12 +237,12 @@
     status_code: "200"
   register: cdap_result_request
   until:
-    cdap_result_request.content.json.Requests.request_status == "COMPLETED" or cdap_result_request.content.json.Requests.request_status == "FAILED"
+    cdap_result_request.json.Requests.request_status == "COMPLETED" or cdap_result_request.json.Requests.request_status == "FAILED"
   failed_when:
-    cdap_result_request.content.json.Requests.request_status == "FAILED"
+    cdap_result_request.json.Requests.request_status == "FAILED"
   retries: 20
   delay: 30
-  when: cdap_result_install.content is defined
+  when: cdap_result_install.json is defined
 
 - name: Start CDAP Component
   uri:
