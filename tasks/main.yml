@@ -263,7 +263,7 @@
       Body:
         ServiceInfo:
           state: STARTED
-    status_code: 202
+    status_code: 202, 200
   register: cdap_result_start
   changed_when: cdap_result_start.status == 202
 
