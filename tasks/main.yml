@@ -152,7 +152,6 @@
             type: "zoo.cfg"
             tag: "version{{ ansible_date_time.epoch }}"
             properties: "{{ zoo_config_latest.json['items'][0].properties | combine(hdp_config['zoo.cfg']) }}"
-  register: test
 
 - name: Assign CDAP components to hosts
   uri:
